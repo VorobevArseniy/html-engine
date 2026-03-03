@@ -15,7 +15,12 @@
         pkgs = nixpkgs.legacyPackages.${system};
       in
       {
-        devShells.default = pkgs.mkShell { packages = with pkgs; [ lua ]; };
+        devShells.default = pkgs.mkShell {
+          packages = with pkgs; [
+            gdb
+            lua
+          ];
+        };
       }
     );
 }
