@@ -19,6 +19,8 @@
           packages = with pkgs; [
             gdb
             lua
+            clang
+            valgrind
           ];
         };
       }
