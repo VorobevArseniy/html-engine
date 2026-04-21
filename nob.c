@@ -12,6 +12,7 @@ int main(int argc, char *argv[]) {
   nob_cmd_append(&cmd, "cc");
   nob_cmd_append(&cmd, "-Wall");
   nob_cmd_append(&cmd, "-Wextra");
+  nob_cmd_append(&cmd, "-g");
   nob_cmd_append(&cmd, "-o");
   nob_cmd_append(&cmd, "main");
   nob_cmd_append(&cmd, SRC_FOLDER "main.c");

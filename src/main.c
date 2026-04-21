@@ -13,7 +13,7 @@
 
 // dom -----------------------------------------
 
-typedef Ht(String_View, String_View) ElementAttributes;
+typedef Ht(const char *, const char *) ElementAttributes;
 
 typedef struct Node Node;
 typedef struct Element Element;
@@ -57,7 +57,7 @@ Node *node_create_text(char *data) {
 Node *node_create_element(char *name) {
   Element *elem = malloc(sizeof(Element));
   elem->name = strdup(name);
-  elem->attrs = (ElementAttributes){.hasheq = ht_sv_hasheq};
+  elem->attrs = (ElementAttributes){.hasheq = ht_cstr_hasheq};
   assert(elem);
 
   Node *node = malloc(sizeof(Node));
@@ -70,11 +70,11 @@ Node *node_create_element(char *name) {
   return node;
 }
 
-void node_set_attribute(Node *node, const char *key, const char *value) {
+void node_set_attribute(Node *node, char *key, char *value) {
   if (node->kind != NODE_ELEMENT)
     return;
 
-  *ht_put(&node->as.element->attrs, sv_from_cstr(key)) = sv_from_cstr(value);
+  *ht_put(&node->as.element->attrs, key) = value;
 }
 
 void node_append_child(Node *parent, Node *child) {
@@ -110,6 +110,13 @@ void node_free(Node *node) {
   case NODE_ELEMENT:
     if (node->as.element) {
       free(node->as.element->name);
+
+      // free attributes names and values
+      ht_foreach(attr, &node->as.element->attrs) {
+        free((void *)*attr);
+        free((void *)ht_key(&node->as.element->attrs, attr));
+      }
+
       ht_free(&node->as.element->attrs);
       free(node->as.element);
     }
@@ -121,6 +128,8 @@ void node_free(Node *node) {
 #define dump_node(node)                                                        \
   dump_node_((node), 0);                                                       \
   printf("\n");
+
+bool is_void_tag(const char *tag);
 
 void dump_node_(Node *node, size_t level) {
   for (size_t i = 0; i <= level; i++) {
@@ -134,10 +143,12 @@ void dump_node_(Node *node, size_t level) {
   case NODE_ELEMENT:
     printf("<%s", node->as.element->name);
     ht_foreach(attr, &node->as.element->attrs) {
-      printf(" " SV_Fmt "=\"" SV_Fmt "\"",
-             SV_Arg(ht_key(&node->as.element->attrs, attr)), SV_Arg(*attr));
+      printf(" %s=\"%s\"", ht_key(&node->as.element->attrs, attr), *attr);
     }
     printf(">");
+
+    if (is_void_tag(node->as.element->name))
+      return;
 
     if (node->children) {
       level += 1;
@@ -430,6 +441,32 @@ bool lexer_expect(Lexer *l, TokenKind expected) {
 }
 
 // parser --------------------------------------
+bool parse_attributes(Lexer *l, Node *node) {
+  char *name = strdup(l->string.items);
+
+  if (!lexer_expect(l, TOKEN_EQUAL))
+    return false;
+
+  if (!lexer_expect(l, TOKEN_STRING))
+    return false;
+
+  char *value = strdup(l->string.items);
+
+  node_set_attribute(node, name, value);
+
+  if (!lexer_next(l)) // skip string{
+    return false;
+
+  if (l->token == TOKEN_TAG_CLOSE) {
+    return true;
+  } else if (l->token == TOKEN_IDENT) {
+    return parse_attributes(l, node);
+  } else {
+    lexer_print_loc(l, stderr);
+    printf("hell nah\n");
+    return false;
+  }
+}
 
 Node *parse_node(Lexer *l);
 
@@ -442,11 +479,28 @@ Node *parse_tag(Lexer *l) {
 
   Node *el = node_create_element(l->string.items);
 
-  if (!lexer_expect(l, TOKEN_TAG_CLOSE)) {
+  if (!lexer_next(l)) {
     lexer_print_loc(l, stderr);
     printf("hell nah\n");
 
     return NULL;
+  }
+
+  if (l->token == TOKEN_IDENT) {
+    if (!parse_attributes(l, el)) {
+      lexer_print_loc(l, stderr);
+      printf("hell nah\n");
+      return NULL;
+    }
+  } else if (l->token != TOKEN_TAG_CLOSE) {
+    lexer_print_loc(l, stderr);
+    printf("hell nah\n");
+
+    return NULL;
+  }
+
+  if (is_void_tag(el->as.element->name)) {
+    return el;
   }
 
   while (lexer_next(l)) {
@@ -462,9 +516,8 @@ Node *parse_tag(Lexer *l) {
     }
 
     Node *child = parse_node(l);
-    if (!child) {
+    if (!child)
       return NULL;
-    }
 
     node_append_child(el, child);
   }
@@ -510,9 +563,10 @@ Node *parse_node(Lexer *l) {
 int main() {
   const char *input = "<html>"
                       "<body>"
-                      "<h1>"
+                      "<h1 disabled='true' class='header'>"
                       "Hello World"
                       "</h1>"
+                      "<hr>"
                       "<h2>"
                       "Yay!"
                       "</h2>"
@@ -528,6 +582,11 @@ int main() {
   }
 
   Node *aboba = parse_node(&lexer);
+
+  if (!aboba) {
+    lexer_print_loc(&lexer, stderr);
+    fprintf(stderr, "Parsing failed\n");
+  }
 
   dump_node(aboba);
 
