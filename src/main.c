@@ -440,12 +440,29 @@ bool lexer_expect(Lexer *l, TokenKind expected) {
   return true;
 }
 
+char *null_string() {
+  static char *instance = NULL;
+
+  if (instance == NULL) {
+    instance = strdup("");
+    assert(instance);
+  }
+
+  return instance;
+}
+
 // parser --------------------------------------
+
 bool parse_attributes(Lexer *l, Node *node) {
   char *name = strdup(l->string.items);
 
-  if (!lexer_expect(l, TOKEN_EQUAL))
+  if (!lexer_next(l))
     return false;
+
+  if (l->token == TOKEN_IDENT) {
+    node_set_attribute(node, name, null_string());
+    return parse_attributes(l, node);
+  }
 
   if (!lexer_expect(l, TOKEN_STRING))
     return false;
@@ -541,12 +558,10 @@ Node *parse_tag(Lexer *l) {
   return el;
 }
 
-Node *parse_text(Lexer *l) { return node_create_text(l->string.items); }
-
 Node *parse_node(Lexer *l) {
   switch ((int)l->token) {
   case TOKEN_TEXT:
-    return parse_text(l);
+    return node_create_text(l->string.items);
   case TOKEN_TAG_OPEN:
     return parse_tag(l);
   default:
@@ -563,13 +578,15 @@ Node *parse_node(Lexer *l) {
 int main() {
   const char *input = "<html>"
                       "<body>"
-                      "<h1 disabled='true' class='header'>"
+                      "<h1>"
                       "Hello World"
                       "</h1>"
-                      "<hr>"
-                      "<h2>"
-                      "Yay!"
-                      "</h2>"
+                      "<hr class='divider'>"
+                      "<div class='main'>"
+                      "<p>"
+                      "Hello <em>world</em>"
+                      "</p>"
+                      "</div>"
                       "</body>"
                       "</html>";
 
@@ -586,6 +603,7 @@ int main() {
   if (!aboba) {
     lexer_print_loc(&lexer, stderr);
     fprintf(stderr, "Parsing failed\n");
+    return 1;
   }
 
   dump_node(aboba);
