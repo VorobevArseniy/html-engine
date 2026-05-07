@@ -104,14 +104,13 @@ void node_free(Node *node) {
   }
 
   switch (node->kind) {
-  case NODE_TEXT:
+  case NODE_TEXT: {
     free(node->as.text);
-    break;
-  case NODE_ELEMENT:
+  } break;
+  case NODE_ELEMENT: {
     if (node->as.element) {
       free(node->as.element->name);
 
-      // free attributes names and values
       ht_foreach(attr, &node->as.element->attrs) {
         free((void *)*attr);
         free((void *)ht_key(&node->as.element->attrs, attr));
@@ -120,9 +119,10 @@ void node_free(Node *node) {
       ht_free(&node->as.element->attrs);
       free(node->as.element);
     }
-  }
 
-  free(node);
+    free(node);
+  } break;
+  }
 }
 
 #define dump_node(node)                                                        \
@@ -137,10 +137,10 @@ void dump_node_(Node *node, size_t level) {
   }
 
   switch (node->kind) {
-  case NODE_TEXT:
+  case NODE_TEXT: {
     printf("%s", node->as.text);
-    break;
-  case NODE_ELEMENT:
+  } break;
+  case NODE_ELEMENT: {
     printf("<%s", node->as.element->name);
     ht_foreach(attr, &node->as.element->attrs) {
       printf(" %s=\"%s\"", ht_key(&node->as.element->attrs, attr), *attr);
@@ -164,7 +164,7 @@ void dump_node_(Node *node, size_t level) {
 
     printf("</%s>", node->as.element->name);
 
-    break;
+  } break;
   }
 }
 

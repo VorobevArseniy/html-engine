@@ -1,8 +1,14 @@
+#include <ctype.h>
+#include <stdio.h>
 #include <stdlib.h>
 
 #define NOB_IMPLEMENTATION
 #include "../thirdparty/nob.h"
 #define NOB_UNSTRIP_PREFIX
+
+typedef struct {
+  size_t a, b, c;
+} Specifity;
 
 typedef struct {
   size_t pos, bol, row;
@@ -18,6 +24,7 @@ typedef enum {
   CSS_TOKEN_COMMA,     // ,
   CSS_TOKEN_COLON,     // :
   CSS_TOKEN_SEMICOLON, // :
+  CSS_TOKEN_STAR,      // *
 
   CSS_TOKEN_NUMBER,     // e.g. 42
   CSS_TOKEN_PX_NUMBER,  // e.g. 42px
